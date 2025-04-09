@@ -1,5 +1,5 @@
 import { createApp, ref, reactive, computed, onMounted, watch } from 'vue';
-import confetti from 'confetti';
+import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
 
 createApp({
     setup() {
@@ -972,4 +972,3 @@ createApp({
         };
     }
 }).mount('#app');
-
