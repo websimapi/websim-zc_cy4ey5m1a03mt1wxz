@@ -1,5 +1,5 @@
 import { createApp, ref, reactive, computed, onMounted, watch } from 'vue';
-import confetti from 'confetti';
+import * as confettiJs from 'confetti';
 
 createApp({
     setup() {
@@ -882,7 +882,7 @@ createApp({
         };
         
         const triggerConfetti = () => {
-            confetti({
+            confettiJs.default({
                 particleCount: 150,
                 spread: 70,
                 origin: { y: 0.6 }
