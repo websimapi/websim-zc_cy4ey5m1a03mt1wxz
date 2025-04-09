@@ -8,31 +8,30 @@
     <script type="importmap">
     {
         "imports": {
-            "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js"
+            "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js",
+            "confetti": "https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"
         }
     }
     </script>
 </head>
 <body>
     <div id="app">
-        <div class="game-container" :class="{'game-active': gameState === 'playing', 'alarm-active': alarmActive}">
+        <div class="game-container" :class="{'game-active': gameState !== 'lobby', 'alarm-active': alarmActive}">
             <!-- Lobby Screen -->
-            <div class="lobby" v-if="gameState === 'lobby'">
+            <div v-if="gameState === 'lobby'" class="lobby">
                 <div class="logo">
-                    <h1>MIND<span>THIEF</span></h1>
-                    <div class="subtitle">WORD HEIST</div>
+                    <h1>MIND THIEF: <span>WORD HEIST</span></h1>
+                    <div class="subtitle">Infiltrate the Vault of Knowledge</div>
                 </div>
                 
                 <div class="role-selection">
-                    <h2>Choose Your Role</h2>
+                    <h2>SELECT YOUR ROLE</h2>
                     <div class="roles">
-                        <div v-for="role in roles" :key="role.id" 
-                             class="role-card" 
-                             :class="{
-                                 'selected': selectedRole === role.id,
-                                 'unavailable': takenRoles[role.id] && selectedRole !== role.id
-                             }"
-                             @click="selectRole(role.id)">
+                        <div v-for="role in roles" 
+                            :key="role.id" 
+                            class="role-card" 
+                            :class="{'selected': selectedRole === role.id, 'unavailable': takenRoles[role.id] && selectedRole !== role.id}"
+                            @click="selectRole(role.id)">
                             <div class="role-icon">{{ role.emoji }}</div>
                             <h3>{{ role.name }}</h3>
                             <p>{{ role.description }}</p>
@@ -41,52 +40,54 @@
                 </div>
                 
                 <div class="player-controls">
-                    <input type="text" v-model="playerName" placeholder="Enter your name" maxlength="20" />
-                    <button class="join-button" @click="joinGame" :disabled="!canJoin">Join Game</button>
+                    <input v-model="playerName" placeholder="Enter your name" maxlength="15" />
+                    <button class="join-button" @click="joinGame" :disabled="!canJoin">
+                        JOIN HEIST
+                    </button>
                 </div>
                 
-                <div class="connected-players" v-if="Object.keys(players).length > 0">
-                    <h3>Connected Players</h3>
+                <div class="connected-players">
+                    <h3>HEIST CREW ({{Object.keys(players).length}}/4)</h3>
                     <div class="player-list">
                         <div v-for="(player, id) in players" :key="id" class="player">
-                            <div class="player-role-icon">{{ getRoleEmoji(player.role) }}</div>
-                            <div class="player-name">{{ player.name }}</div>
-                            <div class="player-status" :class="{'ready': player.ready}">
+                            <span class="player-role-icon">{{ getRoleEmoji(player.role) }}</span>
+                            <span class="player-name">{{ player.name }}</span>
+                            <span class="player-status" :class="{'ready': player.ready}">
                                 {{ player.ready ? 'READY' : 'WAITING' }}
-                            </div>
+                            </span>
                         </div>
                     </div>
                 </div>
                 
-                <button class="start-game-button" 
-                        @click="startGame" 
-                        :disabled="!canStartGame || !isHost"
-                        v-if="isHost">
+                <button v-if="isHost && Object.keys(players).length >= 1" 
+                    class="start-game-button"
+                    :disabled="!canStartGame"
+                    @click="startGame">
                     START HEIST
                 </button>
                 
                 <div class="game-instructions">
-                    <h3>Mission Briefing</h3>
-                    <p>Welcome to Mind Thief: Word Heist, an adrenaline-fueled word game where you and your crew are expert word thieves infiltrating the Vault of Knowledge.</p>
-                    <p>Your mission: steal high-value words by solving puzzles, cracking codes, and racing against time — all while avoiding the Vault AI's traps and countermeasures.</p>
-                    <p>Work together to collect enough words, then create a final story using your stolen vocabulary to complete the heist!</p>
+                    <h3>MISSION BRIEFING</h3>
+                    <p>Welcome to <b>Mind Thief: Word Heist</b>, an adrenaline-fueled real-time game where you and your crew are expert word thieves infiltrating the Vault of Knowledge.</p>
+                    <p>Your mission: steal high-value words by solving riddles, cracking coded clues, and racing against time — all while avoiding the Vault AI's traps and countermeasures.</p>
+                    <p>Work together using only words, wit, and reflexes. The vault evolves with your every move.</p>
                 </div>
             </div>
             
             <!-- Active Game Screen -->
-            <div class="game-active-container" v-if="gameState === 'playing'">
+            <div v-else class="game-active-container">
                 <div class="game-header">
-                    <div class="logo-small">MIND<span>THIEF</span></div>
+                    <div class="logo-small">MIND THIEF: <span>WORD HEIST</span></div>
                     <div class="game-status">
                         <div class="timer" :class="{'warning': timer <= 30}">
                             <div class="timer-icon">⏱️</div>
                             <div class="timer-count">{{ formatTime(timer) }}</div>
                         </div>
                         <div class="word-count">
-                            Words: {{ stolenWords.length }}/{{ wordsNeeded }}
+                            <span>Words Stolen: {{ stolenWords.length }}/{{ wordsNeeded }}</span>
                         </div>
                         <div class="category">
-                            Category: {{ currentCategory }}
+                            <span>Current Vault: <b>{{ currentCategory }}</b></span>
                         </div>
                     </div>
                 </div>
@@ -95,37 +96,32 @@
                     <div class="vault-comms">
                         <div class="ai-message-container">
                             <div v-for="(message, index) in aiMessages" :key="index" 
-                                 class="ai-message" :class="message.type">
+                                class="ai-message" 
+                                :class="{'alarm': message.type === 'alarm', 'hint': message.type === 'hint', 'success': message.type === 'success', 'challenge': message.type === 'challenge', 'system': message.type === 'system'}">
                                 <div class="message-content" v-html="message.text"></div>
-                                <div class="message-timer" v-if="message.timer !== undefined">
-                                    {{ message.timer }}s
-                                </div>
+                                <div v-if="message.timer" class="message-timer">{{ message.timer }}s</div>
                             </div>
                         </div>
                     </div>
                     
                     <div class="player-input">
                         <form @submit.prevent="submitResponse">
-                            <input ref="responseInput" 
-                                   type="text" 
-                                   v-model="playerResponse" 
-                                   placeholder="Enter your answer..." 
-                                   :disabled="inputDisabled || activePlayer.value !== room.clientId" />
-                            <button type="submit" 
-                                    :disabled="inputDisabled || !playerResponse || activePlayer.value !== room.clientId">
-                                SUBMIT
-                            </button>
+                            <input v-model="playerResponse" :disabled="inputDisabled" 
+                                placeholder="Type your response here..." 
+                                ref="responseInput"
+                                autocomplete="off" />
+                            <button type="submit" :disabled="!playerResponse || inputDisabled">SUBMIT</button>
                         </form>
                     </div>
                     
                     <div class="word-vault">
-                        <h3>Word Vault ({{ stolenWords.length }}/{{ wordsNeeded }})</h3>
+                        <h3>STOLEN WORDS</h3>
                         <div class="word-grid">
                             <div v-for="(word, index) in stolenWords" :key="index" class="stolen-word">
-                                {{ word }}
+                                <span>{{ word }}</span>
                             </div>
-                            <div v-for="i in (wordsNeeded - stolenWords.length)" :key="'empty-'+i" class="stolen-word empty">
-                                [ empty ]
+                            <div v-for="n in (wordsNeeded - stolenWords.length)" :key="'empty-'+n" class="stolen-word empty">
+                                <span>?</span>
                             </div>
                         </div>
                     </div>
@@ -133,14 +129,11 @@
                 
                 <div class="player-roster">
                     <div v-for="(player, id) in players" :key="id" 
-                         class="player-card" 
-                         :class="{
-                             'current-player': id === room.clientId,
-                             'active-player': id === activePlayer
-                         }">
+                        class="player-card" 
+                        :class="{'current-player': id === room.clientId, 'active-player': activePlayer === id}">
                         <div class="player-role">
-                            <div class="role-emoji">{{ getRoleEmoji(player.role) }}</div>
-                            <div class="role-name">{{ getRoleName(player.role) }}</div>
+                            <span class="role-emoji">{{ getRoleEmoji(player.role) }}</span>
+                            <span class="role-name">{{ getRoleName(player.role) }}</span>
                         </div>
                         <div class="player-name">{{ player.name }}</div>
                     </div>
@@ -148,13 +141,13 @@
             </div>
             
             <!-- Game Over Screen -->
-            <div class="game-over-overlay" v-if="gameState === 'gameOver'">
+            <div v-if="gameState === 'gameOver'" class="game-over-overlay">
                 <div class="game-over-container">
                     <h2>{{ gameWon ? 'HEIST SUCCESSFUL!' : 'HEIST FAILED!' }}</h2>
-                    <p>{{ gameWon ? 'You\'ve successfully stolen valuable words from the Vault of Knowledge!' : 'The Vault AI caught you before you could complete your mission.' }}</p>
+                    <p>{{ gameWon ? 'You successfully stole all the required words!' : 'The Vault AI caught you before you could complete the heist!' }}</p>
                     
-                    <div class="stolen-words-display" v-if="stolenWords.length > 0">
-                        <h3>Your Stolen Words</h3>
+                    <div v-if="gameWon" class="stolen-words-display">
+                        <h3>WORDS STOLEN:</h3>
                         <div class="final-word-list">
                             <div v-for="(word, index) in stolenWords" :key="index" class="final-word">
                                 {{ word }}
@@ -162,17 +155,17 @@
                         </div>
                     </div>
                     
-                    <div class="story-challenge" v-if="gameWon && !storyRating">
-                        <h3>Final Challenge: Create Your Heist Story</h3>
-                        <p>Use all your stolen words to create a coherent story about your heist.</p>
-                        <textarea v-model="storyText" rows="6" placeholder="Once upon a time..."></textarea>
+                    <div v-if="gameWon" class="story-challenge">
+                        <h3>FINAL CHALLENGE: CREATE A STORY</h3>
+                        <p>Use all your stolen words to create a short, coherent story to solidify your heist!</p>
+                        <textarea v-model="storyText" placeholder="Once upon a time..." rows="5"></textarea>
                         <button @click="submitStory" :disabled="!canSubmitStory">SUBMIT STORY</button>
                     </div>
                     
-                    <div class="story-rating" v-if="storyRating > 0">
-                        <h3>Story Evaluation</h3>
+                    <div v-if="storyRating" class="story-rating">
+                        <h3>VAULT AI EVALUATION</h3>
                         <div class="rating-stars">
-                            <span v-for="i in 5" :key="i" class="star" :class="{'filled': i <= storyRating}">★</span>
+                            <span v-for="n in 5" :key="n" class="star" :class="{'filled': n <= storyRating}">★</span>
                         </div>
                         <p>{{ storyFeedback }}</p>
                     </div>
@@ -181,21 +174,18 @@
                 </div>
             </div>
             
-            <!-- Security Overlays -->
+            <!-- Vault Security Feed Overlay -->
             <div class="vault-overlay">
                 <div class="security-grid">
-                    <div v-for="i in 36" :key="i" 
-                         class="security-cell"
-                         :class="{'active': securityCells.includes(i)}">
-                    </div>
+                    <div v-for="n in 36" :key="n" class="security-cell" :class="{'active': securityCells.includes(n)}"></div>
                 </div>
                 <div class="scan-line"></div>
             </div>
             
+            <!-- Alarm effect -->
             <div class="alarm-light" v-if="alarmActive"></div>
         </div>
     </div>
-    
     <script type="module" src="app.js"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>

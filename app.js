@@ -1,5 +1,5 @@
 import { createApp, ref, reactive, computed, onMounted, watch } from 'vue';
-import * as confettiModule from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
+import confetti from 'confetti';
 
 createApp({
     setup() {
@@ -334,6 +334,12 @@ createApp({
                 startGameplay();
             } else if (currentRoomState.gameState === 'lobby' && gameState.value !== 'lobby') {
                 resetGameState();
+            } else if (currentRoomState.gameState === 'gameOver' && gameState.value !== 'gameOver') {
+                gameState.value = 'gameOver';
+                gameWon.value = currentRoomState.gameWon || false;
+                if (gameWon.value) {
+                    triggerConfetti();
+                }
             }
             
             // Update timer
@@ -651,9 +657,9 @@ createApp({
             
             // In a real implementation, this would use the LLM to generate or validate a relevant word
             // For demo purposes, we'll use the answer from the challenge if available
-            if (challenge.details.answer) {
+            if (challenge.details && challenge.details.answer) {
                 stolenWord = challenge.details.answer;
-            } else if (challenge.details.answers && challenge.details.answers.length > 0) {
+            } else if (challenge.details && challenge.details.answers && challenge.details.answers.length > 0) {
                 stolenWord = challenge.details.answers[0];
             } else {
                 // Generate a random word related to the category
@@ -729,10 +735,12 @@ createApp({
             });
             
             // Update room state
-            room.updateRoomState({
-                activeChallenge: null,
-                activePlayer: null
-            });
+            if (isHost.value) {
+                room.updateRoomState({
+                    activeChallenge: null,
+                    activePlayer: null
+                });
+            }
             
             // Notify other players
             for (const clientId in players) {
@@ -813,6 +821,12 @@ createApp({
         };
         
         const endGame = (won) => {
+            if (isHost.value) {
+                room.updateRoomState({
+                    gameState: 'gameOver',
+                    gameWon: won
+                });
+            }
             gameState.value = 'gameOver';
             gameWon.value = won;
             
@@ -868,7 +882,7 @@ createApp({
         };
         
         const triggerConfetti = () => {
-            confettiModule.default({
+            confetti({
                 particleCount: 150,
                 spread: 70,
                 origin: { y: 0.6 }
